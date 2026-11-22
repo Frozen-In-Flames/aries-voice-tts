@@ -1,0 +1,8 @@
+{"items": [
+  {"name": "C1", "text": "The birch canoe slid on the smooth planks.", "file": "C1.wav"},
+  {"name": "D1 (neutral)", "text": "You came a long way to find me.", "file": "D1-neutral.wav"},
+  {"name": "F1", "text": "Enemy spotted.", "file": "F1.wav"},
+  {"name": "F5", "text": "Follow me.", "file": "F5.wav"},
+  {"name": "F7", "text": "That door has not opened in a hundred years.", "file": "F7.wav"},
+  {"name": "F12", "text": "I will remember this.", "file": "F12.wav"}
+]}
