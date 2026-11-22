@@ -3,6 +3,8 @@
 A custom text-to-speech model built on the voice of Aries Hilton
 (Frozen In Flames), with a live browser demo.
 
+**Live demo: https://frozen-in-flames.github.io/aries-voice-tts/**
+
 ## What this is
 
 This repository holds the complete lifecycle of one artist-owned voice
