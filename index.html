@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aries Voice TTS: Live Demo</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 42rem; padding: 0 1rem; background: #101014; color: #eee; }
+  textarea { width: 100%; min-height: 6rem; font-size: 1.1rem; padding: .6rem; border-radius: .5rem; border: 1px solid #444; background: #1a1a20; color: #eee; box-sizing: border-box; }
+  button { margin-top: .8rem; font-size: 1.1rem; padding: .6rem 1.4rem; border-radius: .5rem; border: 0; background: #7c3aed; color: #fff; cursor: pointer; }
+  button:disabled { background: #444; cursor: wait; }
+  #status { margin-top: 1rem; color: #bbb; }
+  audio { width: 100%; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<h1>Aries Voice TTS</h1>
+<p>A custom text-to-speech model built on the voice of Aries Hilton. Type
+text, press Speak, and hear it in his voice.</p>
+<textarea id="text" placeholder="Type something for the voice to say...">The gate is open. Move now.</textarea>
+<br>
+<button id="speak" disabled>Speak</button>
+<p id="status">Model status: in training. The corpus (61 labeled items) is
+recorded and being segmented; this demo activates when the trained model
+lands in this repository.</p>
+<audio id="player" controls hidden></audio>
+<script>
+// The inference wiring loads model/manifest.json when the trained model is
+// published to this repository. Until then the button stays disabled and
+// the status line above states the position honestly.
+fetch('model/manifest.json').then(r => { if (!r.ok) throw 0; return r.json(); })
+.then(() => {
+  document.getElementById('status').textContent = 'Model status: live.';
+  document.getElementById('speak').disabled = false;
+}).catch(() => {});
+</script>
+</body>
+</html>
