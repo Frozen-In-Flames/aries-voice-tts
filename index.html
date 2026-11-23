@@ -16,17 +16,14 @@
 <body>
 <h1>Aries Voice TTS</h1>
 <p>A custom text-to-speech model trained on the voice of Aries Hilton.
-The trained model is published in this repository; generated samples
-from it are below.</p>
+Type text, press Speak, and hear it in his voice. The model runs
+entirely in your browser, on your device.</p>
 <textarea id="text" placeholder="Type something for the voice to say...">The gate is open. Move now.</textarea>
 <br>
-<button id="speak" disabled>Speak (in-browser player not wired yet)</button>
-<p id="status">Model status: trained and published. A VITS model (Piper
-architecture) fine-tuned on the artist's own 63 recordings from the
-Piper en_US-amy-medium base checkpoint, exported to ONNX and published
-in this repository under model/, and inside the validated voicepack,
-which now declares status trained. The remaining step is wiring this
-page's Speak button to run the published model in the browser.</p>
+<button id="speak" disabled>Speak (loading the voice runtime...)</button>
+<p id="status">Model status: loading. The trained model and its
+in-browser runtime are published in this repository; the first load
+fetches about 95 MB and caches it in your browser.</p>
 <p>The validated voicepack and the full corpus are public in this
 repository: <a href="https://github.com/Frozen-In-Flames/aries-voice-tts/blob/main/aries-hilton.voicepack">aries-hilton.voicepack</a>.</p>
 <audio id="player" controls hidden></audio>
@@ -56,10 +53,120 @@ cloning route from text alone, locally, on November 21, 2026:</p>
 <p>These are clips from the artist's actual recorded session, the same
 items the model is trained on. They are recordings, not generated speech.</p>
 <div id="samples"><p id="samples-status">Segmentation in progress; clips appear here as they are cut from the take.</p></div>
+<script src="tts/piper-phonemize/piper-phonemize.js"></script>
 <script>
-// The trained model is published under model/ with model/manifest.json.
-// The Speak button stays disabled until the in-browser player is wired
-// to run it; the status line above states the position honestly.
+// In-browser player for the trained model published in this repository.
+// Text is phonemized on this thread by piper-phonemize (espeak-ng,
+// WebAssembly); synthesis runs in a worker (sherpa-onnx, WebAssembly)
+// against the fine-tuned ONNX model packaged in tts/. Everything runs
+// locally in the browser; no server sees the text.
+const speakBtn = document.getElementById('speak');
+const statusEl = document.getElementById('status');
+const textEl = document.getElementById('text');
+const player = document.getElementById('player');
+let phonemizeReady = false;
+let ttsReady = false;
+let ttsLang = 'en-us';
+
+let resolvePhonemize;
+const phonemizePromise = new Promise((res) => { resolvePhonemize = res; });
+var Module = {
+  locateFile: function (path, scriptDirectory) {
+    return 'tts/piper-phonemize/' + path;
+  },
+  onRuntimeInitialized: function () {
+    try {
+      piperPhonemizeInitialize();
+      phonemizeReady = true;
+      resolvePhonemize(true);
+      maybeEnable();
+    } catch (e) {
+      statusEl.textContent = 'Player error: the phonemizer failed to start (' + e.message + ').';
+    }
+  }
+};
+
+const worker = new Worker('tts/sherpa-onnx-tts.worker.js');
+worker.onmessage = (e) => {
+  const d = e.data;
+  if (d.type === 'sherpa-onnx-tts-progress') {
+    if (d.status) statusEl.textContent = 'Model status: ' + d.status;
+    return;
+  }
+  if (d.type === 'sherpa-onnx-tts-ready') {
+    ttsReady = true;
+    if (d.lang) ttsLang = d.lang;
+    maybeEnable();
+    return;
+  }
+  if (d.type === 'sherpa-onnx-tts-result') {
+    const blob = toWav(d.samples, d.sampleRate);
+    player.src = URL.createObjectURL(blob);
+    player.hidden = false;
+    player.play().catch(() => {});
+    speakBtn.disabled = false;
+    speakBtn.textContent = 'Speak';
+    statusEl.textContent = 'Model status: live in your browser. Speech is generated locally on your device.';
+    return;
+  }
+  if (d.type === 'error') {
+    speakBtn.disabled = false;
+    speakBtn.textContent = 'Speak';
+    statusEl.textContent = 'Player error: ' + d.message;
+  }
+};
+worker.onerror = (e) => {
+  statusEl.textContent = 'Player error: the voice worker failed to load.';
+};
+
+function maybeEnable() {
+  if (phonemizeReady && ttsReady) {
+    speakBtn.disabled = false;
+    speakBtn.textContent = 'Speak';
+    statusEl.textContent = 'Model status: live in your browser. Speech is generated locally on your device.';
+  }
+}
+
+function toWav(samples, sampleRate) {
+  const n = samples.length;
+  const buffer = new ArrayBuffer(44 + n * 2);
+  const v = new DataView(buffer);
+  const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  writeStr(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); writeStr(8, 'WAVE');
+  writeStr(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, sampleRate, true);
+  v.setUint32(28, sampleRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  writeStr(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(44 + i * 2, Math.round(s * 32767), true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+speakBtn.onclick = async () => {
+  const text = textEl.value.trim();
+  if (!text) return;
+  speakBtn.disabled = true;
+  speakBtn.textContent = 'Generating...';
+  try {
+    await phonemizePromise;
+    const sentences = piperPhonemize(text, ttsLang || 'en-us');
+    if (!sentences) throw new Error('phonemization failed');
+    const phonemeCodepoints = sentences.filter((s) => s.length > 0);
+    if (!phonemeCodepoints.length) throw new Error('nothing to say');
+    worker.postMessage({
+      text: '',
+      genConfig: { phonemeCodepoints: phonemeCodepoints, sid: 0, speed: 1.0 },
+      type: 'generateWithConfig',
+    });
+  } catch (e) {
+    speakBtn.disabled = false;
+    speakBtn.textContent = 'Speak';
+    statusEl.textContent = 'Player error: ' + e.message;
+  }
+};
+
 fetch('samples/manifest.json').then(r => { if (!r.ok) throw 0; return r.json(); })
 .then(m => {
   const box = document.getElementById('samples');
@@ -72,12 +179,7 @@ fetch('samples/manifest.json').then(r => { if (!r.ok) throw 0; return r.json(); 
     box.appendChild(p); box.appendChild(a);
   });
 }).catch(() => {});
-fetch('model/manifest.json').then(r => { if (!r.ok) throw 0; return r.json(); })
-.then(m => {
-  document.getElementById('status').textContent =
-    'Model status: trained model published (' + m.checkpoint + ', ONNX, ' +
-    m.sample_rate + ' Hz). In-browser player wiring is the remaining step.';
-}).catch(() => {});
 </script>
+<script src="tts/piper-phonemize/piper-phonemize-wasm-main.js"></script>
 </body>
 </html>
