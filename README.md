@@ -5,6 +5,17 @@ A custom text-to-speech model built on the voice of Aries Hilton
 
 **Live demo: https://frozen-in-flames.github.io/aries-voice-tts/**
 
+## Use it offline
+
+The same model is available as a download for fully offline use.
+The [Offline Kit release](https://github.com/Frozen-In-Flames/aries-voice-tts/releases/tag/offline-v1.0.0)
+packages the model with a small command-line speaker (`speak.py`,
+also in this repository under `offline/`). One
+`pip install piper-tts` is the only setup; after that it runs with
+no internet, no account, and no server. The individual model
+files and the `.voicepack` are attached to the same release for
+anyone who only needs the model itself.
+
 ## What this is
 
 This repository holds the complete lifecycle of one artist-owned voice
