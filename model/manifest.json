@@ -1,0 +1,12 @@
+{
+  "model": "aries-hilton.onnx",
+  "config": "aries-hilton.onnx.json",
+  "status": "trained",
+  "runtime": "onnx (VITS, Piper architecture)",
+  "sample_rate": 22050,
+  "checkpoint": "epoch 499 of 600",
+  "trained_on": "the actor's recorded corpus in this repository (corpus/, 63 items, 253.22 s)",
+  "base_checkpoint": "en_US-amy-medium (Piper, rhasspy/piper-checkpoints)",
+  "published": "2026-11-22",
+  "sha256": "5c15d20cfd8b0d4aa052040209aa04fc994cc0d7e95397b3e9130898e3452506"
+}
